@@ -1,3 +1,4 @@
+using GuessTheNumber.Api.Contracts;
 using GuessTheNumber.Domain;
 using GuessTheNumber.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -39,7 +40,7 @@ public static class AuthEndpoints
 
             await db.SaveChangesAsync();
 
-            return Results.Ok(new { user.Id, user.Email, user.DisplayName, user.BestGuessCount });
+            return Results.Ok(UserProfileResponse.FromUser(user));
         })
         .RequireAuthorization()
         .WithName("SyncUser");
