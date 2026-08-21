@@ -27,3 +27,10 @@ frontend/.env
 
 # appsettings
 backend/**/appsettings.Local.json
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+terraform/.terraform.lock.hcl
+terraform/crash.log
