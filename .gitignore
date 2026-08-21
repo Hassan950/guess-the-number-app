@@ -1,0 +1,30 @@
+cat > .gitignore << 'EOF'
+# .NET
+backend/**/bin/
+backend/**/obj/
+*.user
+
+# Node / React
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Firebase
+**/firebase-adminsdk-*.json
+**/.firebaserc
+
+# Env files
+.env
+.env.local
+*.env
+
+# OS
+.DS_Store
+
+# IDE
+.vs/
+.vscode/
+*.suo
+
+# appsettings
+backend/**/appsettings.Local.json
