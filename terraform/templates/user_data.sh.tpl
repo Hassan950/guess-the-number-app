@@ -21,5 +21,4 @@ docker run -d \
   -e ASPNETCORE_URLS=http://+:8080 \
   -e ConnectionStrings__Postgres="Host=${db_host};Port=${db_port};Database=${db_name};Username=${db_username};Password=$DB_PASSWORD" \
   -e Firebase__ProjectId="$FIREBASE_PROJECT_ID" \
-  -e Cors__AllowedOrigins__0="https://${cloudfront_domain}" \
   "${ecr_repository_url}:latest"

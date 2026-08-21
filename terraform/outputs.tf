@@ -9,8 +9,8 @@ output "backend_instance_id" {
 }
 
 output "backend_api_url" {
-  description = "Base URL for the backend API (use for VITE_API_BASE_URL)"
-  value       = "http://${aws_instance.backend.public_dns}:${var.backend_port}"
+  description = "Base URL for the backend API (use for VITE_API_BASE_URL). Frontend code already prefixes calls with /api, and both the frontend and API are served from this same CloudFront domain, so this intentionally matches cloudfront_domain_name."
+  value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
 
 output "rds_endpoint" {

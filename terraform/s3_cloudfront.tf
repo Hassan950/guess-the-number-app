@@ -21,6 +21,30 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_cloudfront_function" "spa_routing" {
+  name    = "${var.project_name}-spa-routing"
+  runtime = "cloudfront-js-1.0"
+  comment = "Rewrite SPA client-side routes (no file extension) to index.html"
+  publish = true
+  code    = <<-EOT
+    function handler(event) {
+      var request = event.request;
+      if (!request.uri.includes('.')) {
+        request.uri = '/index.html';
+      }
+      return request;
+    }
+  EOT
+}
+
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_origin_request_policy" "all_viewer" {
+  name = "Managed-AllViewer"
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
@@ -32,12 +56,27 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
+  # Lets the SPA call the API same-origin over HTTPS, even though the EC2
+  # instance itself only speaks plain HTTP. CloudFront terminates TLS for the
+  # browser and proxies to the origin over HTTP.
+  origin {
+    domain_name = aws_instance.backend.public_dns
+    origin_id   = "backend-api"
+
+    custom_origin_config {
+      http_port              = var.backend_port
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD"]
-    cached_methods          = ["GET", "HEAD"]
-    target_origin_id        = "frontend-s3"
-    viewer_protocol_policy  = "redirect-to-https"
-    compress                 = true
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "frontend-s3"
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
 
     forwarded_values {
       query_string = false
@@ -45,19 +84,23 @@ resource "aws_cloudfront_distribution" "frontend" {
         forward = "none"
       }
     }
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_routing.arn
+    }
   }
 
-  # SPA client-side routing: unknown paths fall back to index.html
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "backend-api"
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
 
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
   }
 
   restrictions {

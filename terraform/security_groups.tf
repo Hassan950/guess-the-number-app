@@ -1,14 +1,18 @@
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  name = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
 resource "aws_security_group" "backend" {
   name        = "${var.project_name}-backend"
   description = "Backend EC2 instance"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description = "Backend API"
-    from_port   = var.backend_port
-    to_port     = var.backend_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = "Backend API, reachable only via CloudFront (proxied for HTTPS)"
+    from_port       = var.backend_port
+    to_port         = var.backend_port
+    protocol        = "tcp"
+    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront.id]
   }
 
   dynamic "ingress" {

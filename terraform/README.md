@@ -4,7 +4,11 @@ Provisions:
 
 - **EC2 t3.micro** running the backend container (Docker), pulled from ECR
 - **RDS db.t3.micro** (Postgres 16), private, reachable only from the EC2 instance
-- **S3 + CloudFront** serving the built frontend as a static site
+- **S3 + CloudFront** serving the built frontend as a static site, with
+  CloudFront also proxying `/api/*` to the EC2 instance so the browser only
+  ever talks to one HTTPS origin (the EC2 instance itself has no TLS
+  certificate, so calling it directly from an `https://` page would be
+  blocked as mixed content)
 - **ECR** repository for the backend image
 - IAM role using **SSM Session Manager** for shell access (no open port 22 by default)
 
@@ -76,7 +80,9 @@ aws cloudfront create-invalidation \
 
 Build the frontend with:
 
-- `VITE_API_BASE_URL` = `terraform output backend_api_url`
+- `VITE_API_BASE_URL` = `terraform output backend_api_url` — this is the
+  CloudFront domain, not the EC2 instance directly; the frontend's own API
+  calls already include the `/api` prefix, and CloudFront routes those to EC2
 - Firebase envs same as local dev
 
 ## CI/CD
@@ -122,3 +128,14 @@ extra approval/protection controls it provides.
 - Secrets (`db_password`, `firebase_project_id`) are stored in SSM Parameter
   Store and fetched by the instance at boot — never baked into the AMI or
   committed to the repo.
+- The backend security group only allows inbound traffic on `backend_port`
+  from CloudFront's IP range (the `com.amazonaws.global.cloudfront.origin-facing`
+  managed prefix list), not the open internet — the API is only meant to be
+  reached through the CloudFront proxy.
+- If you're applying these changes on top of an already-running deployment:
+  the EC2 instance's user-data script changed (it no longer sets a CORS
+  origin), so `terraform apply` will **replace the EC2 instance**. The new
+  instance re-pulls the existing `:latest` image from ECR automatically, so
+  no rebuild is needed — but it does get a new public DNS name/instance ID,
+  and the CloudFront distribution update can take 5-15 minutes to propagate
+  globally before `/api/*` starts working through it.
