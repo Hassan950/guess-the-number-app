@@ -39,3 +39,64 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+
+  deploy:
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        working-directory: backend
+        run: |
+          docker build -t "${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}" -t "${{ vars.ECR_REPOSITORY_URL }}:latest" -f Dockerfile .
+          docker push "${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}"
+          docker push "${{ vars.ECR_REPOSITORY_URL }}:latest"
+
+      - name: Deploy backend image to EC2 via SSM
+        run: |
+          # Re-runs the instance's user-data script, which pulls the :latest
+          # image, refetches secrets from SSM Parameter Store, and restarts
+          # the backend container. Keeps CI from needing to duplicate DB/Firebase
+          # config as separate GitHub variables.
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["curl -s http://169.254.169.254/latest/user-data | bash"]' \
+            --query "Command.CommandId" --output text)
+          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "${{ vars.EC2_INSTANCE_ID }}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.BACKEND_API_URL }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy frontend to S3
+        run: aws s3 sync frontend/dist/ "s3://${{ vars.S3_BUCKET_NAME }}" --delete
+
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"

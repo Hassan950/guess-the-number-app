@@ -3,6 +3,11 @@ output "backend_public_dns" {
   value       = aws_instance.backend.public_dns
 }
 
+output "backend_instance_id" {
+  description = "EC2 instance ID (used by the CI/CD deploy job to target SSM commands)"
+  value       = aws_instance.backend.id
+}
+
 output "backend_api_url" {
   description = "Base URL for the backend API (use for VITE_API_BASE_URL)"
   value       = "http://${aws_instance.backend.public_dns}:${var.backend_port}"
