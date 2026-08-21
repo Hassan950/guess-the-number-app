@@ -1,6 +1,5 @@
 using GuessTheNumber.Api.Contracts;
 using GuessTheNumber.Infrastructure;
-using Microsoft.EntityFrameworkCore;
 
 namespace GuessTheNumber.Api.Endpoints;
 
@@ -10,13 +9,7 @@ public static class UserEndpoints
     {
         app.MapGet("/api/users/me", async (HttpContext http, AppDbContext db) =>
         {
-            var uid = http.User.FindFirst("sub")?.Value;
-            if (uid is null)
-            {
-                return Results.Unauthorized();
-            }
-
-            var user = await db.Users.SingleOrDefaultAsync(u => u.FirebaseUid == uid);
+            var user = await http.GetCurrentUserAsync(db);
             if (user is null)
             {
                 // Client hasn't called /api/auth/sync yet - no profile to show.

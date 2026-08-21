@@ -1,4 +1,5 @@
 using GuessTheNumber.Api.Endpoints;
+using GuessTheNumber.Application;
 using GuessTheNumber.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,9 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+
+builder.Services.AddScoped<IGameRepository, EfGameRepository>();
+builder.Services.AddScoped<IGameService, GameService>();
 
 var firebaseProjectId = builder.Configuration["Firebase:ProjectId"];
 if (string.IsNullOrWhiteSpace(firebaseProjectId))
@@ -54,5 +58,6 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
+app.MapGameEndpoints();
 
 app.Run();
