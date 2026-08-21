@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace GuessTheNumber.Application;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum GuessOutcome
 {
     Higher,

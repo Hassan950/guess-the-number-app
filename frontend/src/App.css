@@ -53,9 +53,9 @@
   color: var(--text-h);
 }
 
-.auth-card button {
+button {
   font: inherit;
-  padding: 10px;
+  padding: 10px 16px;
   border-radius: 6px;
   border: none;
   background: var(--accent);
@@ -63,7 +63,7 @@
   cursor: pointer;
 }
 
-.auth-card button:disabled {
+button:disabled {
   opacity: 0.6;
   cursor: default;
 }
@@ -72,4 +72,37 @@
   color: #d92d20;
   font-size: 14px;
   margin: 0;
+}
+
+.best-score {
+  margin-bottom: 20px;
+}
+
+.guess-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.guess-form input {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  width: 100px;
+}
+
+.hint {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.win-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
 }
